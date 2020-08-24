@@ -52,6 +52,9 @@ class CartProduct(models.Model):
         self.total_price = self.quantity * self.product.price
         super().save(*args, **kwargs)
 
+    def __str__(self):
+        return f'{self.product}'
+
     class Meta:
         verbose_name = 'Объект корзины'
         verbose_name_plural = 'Объекты корзины'
@@ -64,9 +67,22 @@ class Cart(models.Model):
     total_price = models.DecimalField(max_digits=9, decimal_places=2, verbose_name='Общая цена товаров в корзине',
                                       default=0)
 
+    def get_products(self):
+        products = self.related_products.all()
+        return products
+
     def save(self, *args, **kwargs):
-        self.total_price = self.quantity * self.product.total_price
+        products = self.related_products.all()
+        cart_total_price = 0
+        for product in products:
+            cart_total_price += product.total_price
+        print('total_price', cart_total_price)
+        self.total_price = cart_total_price
+        self.total_products = products.count()
         super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f'{self.user.user_id}'
 
     class Meta:
         verbose_name = 'Корзина товаров'

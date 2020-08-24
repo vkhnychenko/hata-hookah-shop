@@ -15,7 +15,7 @@ from ugc.states import Order, DeleteProduct, Checkout
 
 
 async def edit_cart(call, cart, i=0):
-    cart_product = cart.related_products.all()
+    cart_product = cart.get_products()
     kb = await cart_kb(cart, cart_product.count(), i)
     await call.message.edit_media(
         media=InputMediaPhoto(
@@ -27,18 +27,25 @@ async def edit_cart(call, cart, i=0):
 
 
 async def send_cart(cart, user_id, i=0):
-    cart_product = cart.related_products.all()
-    photo = settings.URL + cart_product[i].product.image.url
-    kb = await cart_kb(cart, cart_product.count(), 0)
-    await bot.send_message(user_id, 'Какой то текст')
-    await bot.send_photo(
-        user_id,
-        photo=photo,
-        caption=f'<b>{cart_product[i].product.description}.\n\n'
-                f'{cart_product[i].quantity} шт.\n\n'
-                f'{cart_product[i].product.price} руб.</b>',
-        reply_markup=kb
-    )
+    cart_product = cart.get_products()
+    if not cart_product:
+        kb = await category_kb()
+        await bot.send_message(user_id, 'Ваша корзина пуста.\n\n'
+                                        'Выбирайте категорию и добавляйте товар в корзину',
+                               reply_markup=kb)
+    else:
+        print('cart_product',cart_product)
+        photo = settings.URL + cart_product[i].product.image.url
+        kb = await cart_kb(cart, cart_product.count(), 0)
+        await bot.send_message(user_id, 'Какой то текст')
+        await bot.send_photo(
+            user_id,
+            photo=photo,
+            caption=f'<b>{cart_product[i].product.description}.\n\n'
+                    f'{cart_product[i].quantity} шт.\n\n'
+                    f'{cart_product[i].product.price} руб.</b>',
+            reply_markup=kb
+        )
 
 
 @dp.message_handler(CommandStart(), state='*')
@@ -72,12 +79,13 @@ async def choice_product(message: types.Message, state: FSMContext):
 
 @dp.message_handler(text='🛒Показать корзину', state='*')
 async def show_cart(message: types.Message, state: FSMContext):
-    try:
-        cart = await get_cart(message.chat.id)
+    cart = await get_cart(message.chat.id)
+    if not cart:
+        await message.answer('Ваша корзина пуста.')
+    else:
         await send_cart(cart, message.chat.id)
         await state.update_data(cart=cart, i=0)
-    except ObjectDoesNotExist:
-        await message.answer('Ваша корзина пуста.')
+
 
 
 @dp.inline_handler(state='*')
@@ -148,7 +156,7 @@ async def left_right_handlers(call: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     i = data.get('i', 0)
     cart = data.get('cart')
-    cart_product = cart.related_products.all()
+    cart_product = cart.get_products()
     if call.data == 'right':
         await bot.answer_callback_query(call.id)
         if i != cart_product.count() - 1:
@@ -195,7 +203,7 @@ async def cart_handlers(call: CallbackQuery, state: FSMContext):
     if call.data == 'pay':
         await bot.answer_callback_query(call.id)
         cart = data.get('cart')
-        cart_product = cart.related_products.all()
+        cart_product = cart.get_products()
         text = 'Ваш заказ:\n\n'
         for product in cart_product:
             text += f'{product.product.name} - {product.quantity} шт. {product.total_price} руб.\n'
@@ -213,18 +221,14 @@ async def confirm_delete(call: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     i = data.get('i')
     cart = data.get('cart')
-    cart_product = cart.related_products.all()
+    cart_product = cart.get_products()
     if call.data == 'yes_del':
         await bot.delete_message(call.message.chat.id, call.message.message_id)
         cart_product[i].delete()
-        try:
-            cart = await get_cart(call.message.chat.id)
-            await send_cart(cart, call.message.chat.id, 0)
-            await state.update_data(i=0, cart=cart)
-        except ObjectDoesNotExist:
-            kb = await category_kb()
-            await call.message.answer('Ваша корзина пуста.')
-            await call.message.answer('Выбирайте категорию и добавляйте товар в корзину', reply_markup=kb)
+        cart = await get_cart(call.message.chat.id)
+        await send_cart(cart, call.message.chat.id, 0)
+        await state.update_data(i=0, cart=cart)
+
     if call.data == 'no_del':
         kb = await cart_kb(cart, cart_product.count(), i)
         await call.message.edit_reply_markup(reply_markup=kb)
@@ -257,7 +261,7 @@ async def phone_handler(message: types.Message, state: FSMContext):
         data = await state.get_data()
         name = data.get('name')
         cart = data.get('cart')
-        cart_product = cart.related_products.all()
+        cart_product = cart.get_products()
         text = 'Поступил заказ:\n\n'
         for product in cart_product:
             text += f'{product.product.name} - {product.quantity} шт. {product.total_price} руб.\n'
