@@ -4,8 +4,8 @@ from aiogram.dispatcher.filters.builtin import CommandStart
 from aiogram.types import InputMediaPhoto
 from ugc.loader import dp, bot
 from ugc.keyboards import start_kb, category_kb, product_info_kb, cart_kb, delete_confirm, confirm_order
-from ugc.service import add_new_user, get_category, get_products, get_product, add_cart, get_cart
-from django.core.exceptions import ObjectDoesNotExist
+from ugc.message_text import category_text
+from ugc.service import add_new_user, get_products, get_product, add_cart, get_cart
 from django.conf import settings
 from aiogram.types import CallbackQuery
 from aiogram.dispatcher import FSMContext
@@ -20,7 +20,7 @@ async def edit_cart(call, cart, i=0):
     await call.message.edit_media(
         media=InputMediaPhoto(
             media=settings.URL + cart_product[i].product.image.url,
-            caption=f'<b>{cart_product[i].product.description}.\n\n'
+            caption=f'<b>{cart_product[i].product.name} {cart_product[i].product.description}.\n\n'
                     f'{cart_product[i].quantity} шт.\n\n'
                     f'{cart_product[i].product.price} руб.</b>'),
         reply_markup=kb)
@@ -30,18 +30,16 @@ async def send_cart(cart, user_id, i=0):
     cart_product = cart.get_products()
     if not cart_product:
         kb = await category_kb()
-        await bot.send_message(user_id, 'Ваша корзина пуста.\n\n'
-                                        'Выбирайте категорию и добавляйте товар в корзину',
+        await bot.send_message(user_id, f'Ваша корзина пуста.\n\n{category_text}',
                                reply_markup=kb)
     else:
-        print('cart_product',cart_product)
+        print('cart_product', cart_product)
         photo = settings.URL + cart_product[i].product.image.url
         kb = await cart_kb(cart, cart_product.count(), 0)
-        await bot.send_message(user_id, 'Какой то текст')
         await bot.send_photo(
             user_id,
             photo=photo,
-            caption=f'<b>{cart_product[i].product.description}.\n\n'
+            caption=f'<b>{cart_product[i].product.name} {cart_product[i].product.description}.\n\n'
                     f'{cart_product[i].quantity} шт.\n\n'
                     f'{cart_product[i].product.price} руб.</b>',
             reply_markup=kb
@@ -58,23 +56,15 @@ async def bot_start(message: types.Message):
         )
     else:
         await message.answer(
-            f'Привет, {message.from_user.full_name}!\nДобро пожаловать в наш магазин',
+            f'Привет, {message.from_user.full_name}!\nДобро пожаловать в магазин ХАТА',
             reply_markup=start_kb
         )
 
 
 @dp.message_handler(text='Выбрать товары', state='*')
 async def choice_product(message: types.Message, state: FSMContext):
-    # try:
     kb = await category_kb()
-    await message.answer('Выберите категорию', reply_markup=kb)
-    # category = await get_category()
-    # items = await get_items('Vape')
-    #     kb = await inline_kb.render_kb_manual(category)
-    #     await message.answer('Выбирай нужную инструкцию.', reply_markup=kb)
-      #     await Manual.choice.set()
-    # except Exception:
-    #     await message.answer('Произошла ошибка соединения с сервером. Попробуйте позже')
+    await message.answer(category_text, reply_markup=kb)
 
 
 @dp.message_handler(text='🛒Показать корзину', state='*')
@@ -87,11 +77,9 @@ async def show_cart(message: types.Message, state: FSMContext):
         await state.update_data(cart=cart, i=0)
 
 
-
 @dp.inline_handler(state='*')
 async def inline_categories(inline_query: InlineQuery, state: FSMContext):
     category_id = inline_query.query
-    print('category_id', category_id)
     result = []
     products = await get_products(category_id)
     for product in products:
@@ -112,23 +100,17 @@ async def inline_categories(inline_query: InlineQuery, state: FSMContext):
 
 @dp.message_handler(state=Order.select)
 async def hand_product(message: types.Message, state: FSMContext):
-    print('id', message.text)
     quantity = 1
-    try:
-        product = await get_product(message.text)
-        print('info', product)
-        photo = settings.URL + product.image.url
-        kb = await product_info_kb(quantity)
-        await message.answer('Какой то текст')
-        await message.answer_photo(
-            photo=photo,
-            caption=f'<b>{product.description}.\n\n'
-                    f'{product.price} руб.</b>',
-            reply_markup=kb
-        )
-        await state.update_data(product=product, quantity=quantity)
-    except Exception:
-        await message.answer('Произошла ошибка соединения с сервером. Попробуйте позже')
+    product = await get_product(message.text)
+    photo = settings.URL + product.image.url
+    kb = await product_info_kb(quantity)
+    await message.answer_photo(
+        photo=photo,
+        caption=f'<b>{product.description}.\n\n'
+                f'{product.price} руб.</b>',
+        reply_markup=kb
+    )
+    await state.update_data(product=product, quantity=quantity)
 
 
 @dp.callback_query_handler(lambda call: call.data in ['up', 'down'], state='*')
@@ -170,7 +152,8 @@ async def left_right_handlers(call: CallbackQuery, state: FSMContext):
     await state.update_data(i=i)
 
 
-@dp.callback_query_handler(lambda call: call.data in ['add', 'cancel', 'delete_product', 'delete_cart', 'pay'], state='*')
+@dp.callback_query_handler(lambda call: call.data in ['add', 'cancel', 'delete_product', 'delete_cart', 'pay'],
+                           state='*')
 async def cart_handlers(call: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     await bot.answer_callback_query(call.id)
@@ -185,7 +168,7 @@ async def cart_handlers(call: CallbackQuery, state: FSMContext):
     if call.data == 'cancel':
         await call.message.delete()
         kb = await category_kb()
-        await call.message.answer('Выберите категорию', reply_markup=kb)
+        await call.message.answer(category_text, reply_markup=kb)
 
     if call.data == 'delete_cart':
         cart = data.get('cart')
@@ -193,7 +176,7 @@ async def cart_handlers(call: CallbackQuery, state: FSMContext):
         await bot.delete_message(call.message.chat.id, call.message.message_id)
         await call.message.answer('Ваша Корзина пуста')
         kb = await category_kb()
-        await call.message.answer('Выберите категорию', reply_markup=kb)
+        await call.message.answer(category_text, reply_markup=kb)
 
     if call.data == 'delete_product':
         await bot.answer_callback_query(call.id)
