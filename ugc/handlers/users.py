@@ -3,9 +3,10 @@ from aiogram import types
 from aiogram.dispatcher.filters.builtin import CommandStart
 from aiogram.types import InputMediaPhoto
 from ugc.loader import dp, bot
-from ugc.keyboards import start_kb, category_kb, product_info_kb, cart_kb, delete_confirm, confirm_order
+from ugc.keyboards import start_kb, category_kb, product_info_kb, cart_kb, delete_confirm, confirm_order, \
+    child_category_kb
 from ugc.message_text import category_text
-from ugc.service import add_new_user, get_products, get_product, add_cart, get_cart
+from ugc.service import add_new_user, get_products, get_product, add_cart, get_cart, get_category
 from django.conf import settings
 from aiogram.types import CallbackQuery
 from aiogram.dispatcher import FSMContext
@@ -20,7 +21,8 @@ async def edit_cart(call, cart, i=0):
     await call.message.edit_media(
         media=InputMediaPhoto(
             media=settings.URL + cart_product[i].product.image.url,
-            caption=f'<b>{cart_product[i].product.name} {cart_product[i].product.description}.\n\n'
+            caption=f'<b>{cart_product[i].product.title}\n'
+                    f'{cart_product[i].product.description}.\n\n'
                     f'{cart_product[i].quantity} шт.\n\n'
                     f'{cart_product[i].product.price} руб.</b>'),
         reply_markup=kb)
@@ -30,16 +32,17 @@ async def send_cart(cart, user_id, i=0):
     cart_product = cart.get_products()
     if not cart_product:
         kb = await category_kb()
-        await bot.send_message(user_id, f'Ваша корзина пуста.\n\n{category_text}',
+        await bot.send_message(user_id, f'Ваша корзина пуста.\n\n'
+                                        f'{category_text}',
                                reply_markup=kb)
     else:
-        print('cart_product', cart_product)
         photo = settings.URL + cart_product[i].product.image.url
         kb = await cart_kb(cart, cart_product.count(), 0)
         await bot.send_photo(
             user_id,
             photo=photo,
-            caption=f'<b>{cart_product[i].product.name} {cart_product[i].product.description}.\n\n'
+            caption=f'<b>{cart_product[i].product.title}\n'
+                    f'{cart_product[i].product.description}.\n\n'
                     f'{cart_product[i].quantity} шт.\n\n'
                     f'{cart_product[i].product.price} руб.</b>',
             reply_markup=kb
@@ -62,9 +65,16 @@ async def bot_start(message: types.Message):
 
 
 @dp.message_handler(text='Выбрать товары', state='*')
-async def choice_product(message: types.Message, state: FSMContext):
+async def category_handler(message: types.Message, state: FSMContext):
     kb = await category_kb()
     await message.answer(category_text, reply_markup=kb)
+    await Order.category.set()
+
+
+@dp.callback_query_handler(state=Order.category)
+async def child_category_handler(call: CallbackQuery, state: FSMContext):
+    kb = await child_category_kb(call.data)
+    await call.message.edit_reply_markup(reply_markup=kb)
 
 
 @dp.message_handler(text='🛒Показать корзину', state='*')
@@ -88,8 +98,9 @@ async def inline_categories(inline_query: InlineQuery, state: FSMContext):
             result.append(InlineQueryResultArticle(
                 id=product.id,
                 thumb_url=settings.URL + product.image.url,
-                title=product.name,
-                description=f'{product.price} руб.',
+                title=product.title,
+                description=f'{product.price} руб.\n'
+                            f'{product.description}',
                 input_message_content=InputTextMessageContent(product.id)
             ))
         except TypeError:
@@ -106,8 +117,9 @@ async def hand_product(message: types.Message, state: FSMContext):
     kb = await product_info_kb(quantity)
     await message.answer_photo(
         photo=photo,
-        caption=f'<b>{product.description}.\n\n'
-                f'{product.price} руб.</b>',
+        caption=f'<b>{product.title}.\n\n'
+                f'{product.price} руб.\n'
+                f'{product.description}</b>',
         reply_markup=kb
     )
     await state.update_data(product=product, quantity=quantity)
@@ -152,7 +164,7 @@ async def left_right_handlers(call: CallbackQuery, state: FSMContext):
     await state.update_data(i=i)
 
 
-@dp.callback_query_handler(lambda call: call.data in ['add', 'cancel', 'delete_product', 'delete_cart', 'pay'],
+@dp.callback_query_handler(lambda call: call.data in ['add', 'cancel', 'delete_product', 'delete_cart', 'pay', 'back'],
                            state='*')
 async def cart_handlers(call: CallbackQuery, state: FSMContext):
     data = await state.get_data()
@@ -164,6 +176,10 @@ async def cart_handlers(call: CallbackQuery, state: FSMContext):
         cart = await get_cart(call.message.chat.id)
         await send_cart(cart, call.message.chat.id)
         await state.update_data(cart=cart, i=0)
+
+    if call.data == 'back':
+        kb = await category_kb()
+        await call.message.edit_reply_markup(reply_markup=kb)
 
     if call.data == 'cancel':
         await call.message.delete()
@@ -189,7 +205,7 @@ async def cart_handlers(call: CallbackQuery, state: FSMContext):
         cart_product = cart.get_products()
         text = 'Ваш заказ:\n\n'
         for product in cart_product:
-            text += f'{product.product.name} - {product.quantity} шт. {product.total_price} руб.\n'
+            text += f'{product.product.title} - {product.quantity} шт. {product.total_price} руб.\n'
         text += f'\nИтоговая стоимость заказа: {cart.total_price} руб\n'
         await call.message.answer(
             text,
@@ -247,7 +263,7 @@ async def phone_handler(message: types.Message, state: FSMContext):
         cart_product = cart.get_products()
         text = 'Поступил заказ:\n\n'
         for product in cart_product:
-            text += f'{product.product.name} - {product.quantity} шт. {product.total_price} руб.\n'
+            text += f'{product.product.title} - {product.quantity} шт. {product.total_price} руб.\n'
         text += f'\nИтоговая стоимость заказа: {cart.total_price} руб\n\n' \
                 f'Покупатель:\n' \
                 f'{name} - {message.text}'
