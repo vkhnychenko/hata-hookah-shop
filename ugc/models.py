@@ -1,9 +1,9 @@
 from time import timezone
 
-from django.contrib.auth import get_user_model
+# from django.contrib.auth import get_user_model
 from django.db import models
 
-User = get_user_model()
+# User = get_user_model()
 
 
 # class Customer(models.Model):
