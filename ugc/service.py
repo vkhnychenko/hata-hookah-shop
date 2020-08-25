@@ -1,4 +1,4 @@
-from ugc.models import UserBot, Category, Product, Cart, CartProduct
+from ugc.models import UserBot, Category, Product, CartBot, CartProductBot
 from asgiref.sync import sync_to_async
 
 
@@ -37,10 +37,10 @@ def get_product(pk):
 @sync_to_async
 def add_cart(user_id, product, quantity):
     user = UserBot.objects.get(user_id=user_id)
-    cart = Cart.objects.filter(user=user).first()
+    cart = CartBot.objects.filter(user=user).first()
     if not cart:
-        cart = Cart.objects.create(user=user)
-    cart_product, created = CartProduct.objects.get_or_create(user=user, cart=cart, product=product)
+        cart = CartBot.objects.create(user=user)
+    cart_product, created = CartProductBot.objects.get_or_create(user=user, cart=cart, product=product)
     if not created:
         cart_product.quantity = quantity + cart_product.quantity
     else:
@@ -51,9 +51,9 @@ def add_cart(user_id, product, quantity):
 
 @sync_to_async
 def get_cart(user_id):
-    return Cart.objects.filter(user__user_id=user_id).first()
+    return CartBot.objects.filter(user__user_id=user_id).first()
 
 
 @sync_to_async
 def make_order(user_id, name, phone):
-    return Cart.objects.filter(user__user_id=user_id).first()
+    return CartBot.objects.filter(user__user_id=user_id).first()

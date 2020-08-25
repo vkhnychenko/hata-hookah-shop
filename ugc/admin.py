@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import UserBot, Product, Category, CartProduct, Cart
+from .models import UserBot, Product, Category, CartProductBot, CartBot
 
 
 @admin.register(UserBot)
@@ -16,5 +16,5 @@ class CategoryAdmin(admin.ModelAdmin):
 
 
 admin.site.register(Product)
-admin.site.register(Cart)
-admin.site.register(CartProduct)
+admin.site.register(CartBot)
+admin.site.register(CartProductBot)
