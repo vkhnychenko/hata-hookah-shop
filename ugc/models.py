@@ -1,6 +1,7 @@
 from time import timezone
+from slugify import slugify
 
-# from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model
 from django.db import models
 
 # User = get_user_model()
@@ -15,6 +16,7 @@ from django.db import models
 #
 #     def __str__(self):
 #         return "Покупатель: {} {}".format(self.user.first_name, self.user.last_name)
+from django.urls import reverse
 
 
 class UserBot(models.Model):
@@ -32,10 +34,16 @@ class UserBot(models.Model):
 
 
 class Category(models.Model):
-    name = models.CharField('Название категории', max_length=50)
+    title = models.CharField('Название категории', max_length=50, unique=True)
+    slug = models.SlugField(blank=True)
+    parent = models.ForeignKey('self', blank=True, null=True, related_name="children", on_delete=models.CASCADE)
 
     def __str__(self):
-        return f'{self.name}'
+        return f'{self.title}'
+
+    def save(self,  *args, **kwargs):
+        self.slug = slugify(self.title)
+        return super(Category, self).save(*args, **kwargs)
 
     class Meta:
         verbose_name = 'Категория'
@@ -43,21 +51,24 @@ class Category(models.Model):
 
 
 class Product(models.Model):
-    name = models.CharField('Наименование товара', max_length=50)
-    description = models.CharField(max_length=50, blank=True)
+    title = models.CharField('Наименование товара', max_length=50)
+    description = models.CharField(max_length=200, blank=True)
     image = models.ImageField('Картинка товара', upload_to='items/')
     category = models.ForeignKey(Category, verbose_name='Категория', on_delete=models.CASCADE)
     price = models.DecimalField(verbose_name='Цена', max_digits=9, decimal_places=2)
 
     def __str__(self):
-        return f'{self.name}'
+        return f'{self.title}'
 
     class Meta:
         verbose_name = 'Товар'
         verbose_name_plural = 'Товары'
 
+    # def get_absolute_url(self):
+    #     return reverse('product_detail', kwargs={'slug': self.slug})
 
-class CartProduct(models.Model):
+
+class CartProductBot(models.Model):
     user = models.ForeignKey(UserBot, verbose_name='Покупатель', on_delete=models.CASCADE)
     cart = models.ForeignKey('Cart', verbose_name='Корзина', on_delete=models.CASCADE, related_name='related_products')
     product = models.ForeignKey(Product, verbose_name='Товар', on_delete=models.CASCADE)
@@ -76,9 +87,9 @@ class CartProduct(models.Model):
         verbose_name_plural = 'Объекты корзины'
 
 
-class Cart(models.Model):
+class CartBot(models.Model):
     user = models.ForeignKey(UserBot, verbose_name='Владелец', on_delete=models.CASCADE)
-    product = models.ManyToManyField(CartProduct, blank=True, related_name='related_cart')
+    product = models.ManyToManyField(CartProductBot, blank=True, related_name='related_cart')
     total_products = models.PositiveIntegerField(default=0)
     total_price = models.DecimalField(max_digits=9, decimal_places=2, verbose_name='Общая цена товаров в корзине',
                                       default=0)

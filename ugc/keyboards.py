@@ -1,5 +1,5 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
-from ugc.service import get_category, get_products
+from ugc.service import get_category, get_products, get_child_category
 
 delete = InlineKeyboardButton('❌Удалить этот товар', callback_data='delete_product')
 left = InlineKeyboardButton('⬅️', callback_data='left')
@@ -24,7 +24,16 @@ async def category_kb():
     kb = InlineKeyboardMarkup(row_width=1)
     categories = await get_category()
     for category in categories:
-        kb.insert(InlineKeyboardButton(category.name, switch_inline_query_current_chat=category.id))
+        kb.insert(InlineKeyboardButton(category.title, callback_data=category.id))
+    return kb
+
+
+async def child_category_kb(category_id):
+    kb = InlineKeyboardMarkup(row_width=1)
+    categories = await get_child_category(category_id)
+    for category in categories:
+        kb.insert(InlineKeyboardButton(category.title, switch_inline_query_current_chat=category.id))
+    kb.add(InlineKeyboardButton('Назад◀️', callback_data='back'))
     return kb
 
 

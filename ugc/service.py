@@ -16,7 +16,12 @@ def add_new_user(message):
 
 @sync_to_async
 def get_category():
-    return Category.objects.all()
+    return Category.objects.filter(parent=None)
+
+
+@sync_to_async
+def get_child_category(category_id):
+    return Category.objects.filter(parent__id=category_id)
 
 
 @sync_to_async
