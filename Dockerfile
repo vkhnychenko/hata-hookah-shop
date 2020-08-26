@@ -17,3 +17,4 @@ COPY ./manage.py /app/manage.py
 COPY ./ugc /app/ugc
 RUN mkdir /app/static
 RUN python manage.py collectstatic --no-input --clear
+RUN python manage.py migrate

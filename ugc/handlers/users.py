@@ -6,7 +6,7 @@ from ugc.loader import dp, bot
 from ugc.keyboards import start_kb, category_kb, product_info_kb, cart_kb, delete_confirm, confirm_order, \
     child_category_kb
 from ugc.message_text import category_text
-from ugc.service import add_new_user, get_products, get_product, add_cart, get_cart, get_category
+from ugc.service import add_new_user, get_products, get_product, add_cart, get_cart, get_category, make_order
 from django.conf import settings
 from aiogram.types import CallbackQuery
 from aiogram.dispatcher import FSMContext
@@ -68,13 +68,6 @@ async def bot_start(message: types.Message):
 async def category_handler(message: types.Message, state: FSMContext):
     kb = await category_kb()
     await message.answer(category_text, reply_markup=kb)
-    await Order.category.set()
-
-
-@dp.callback_query_handler(state=Order.category)
-async def child_category_handler(call: CallbackQuery, state: FSMContext):
-    kb = await child_category_kb(call.data)
-    await call.message.edit_reply_markup(reply_markup=kb)
 
 
 @dp.message_handler(text='🛒Показать корзину', state='*')
@@ -164,11 +157,21 @@ async def left_right_handlers(call: CallbackQuery, state: FSMContext):
     await state.update_data(i=i)
 
 
-@dp.callback_query_handler(lambda call: call.data in ['add', 'cancel', 'delete_product', 'delete_cart', 'pay', 'back'],
-                           state='*')
+# @dp.callback_query_handler(lambda call: call.data in ['add', 'cancel', 'delete_product', 'delete_cart', 'pay', 'back'],
+#                            state='*')
+@dp.callback_query_handler(state='*')
 async def cart_handlers(call: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     await bot.answer_callback_query(call.id)
+    print(type(call.data))
+    list_category = [str(category.id) for category in await get_category()]
+    print(list_category)
+
+    if call.data in [str(category.id) for category in await get_category()]:
+        print('category', call.data)
+        kb = await child_category_kb(call.data)
+        await call.message.edit_reply_markup(reply_markup=kb)
+
     if call.data == 'add':
         product = data.get('product')
         quantity = data.get('quantity')
@@ -268,6 +271,7 @@ async def phone_handler(message: types.Message, state: FSMContext):
                 f'Покупатель:\n' \
                 f'{name} - {message.text}'
         await message.answer('Ваш заказ принят. Ожидайте скоро свяжемся')
+        await make_order(message.chat.id, cart, name, message.text)
         await bot.send_message(
             int(settings.ADMIN_ID),
             text=text

@@ -24,7 +24,10 @@ async def category_kb():
     kb = InlineKeyboardMarkup(row_width=1)
     categories = await get_category()
     for category in categories:
-        kb.insert(InlineKeyboardButton(category.title, callback_data=category.id))
+        if category.children.first():
+            kb.insert(InlineKeyboardButton(category.title, callback_data=category.id))
+        else:
+            kb.insert(InlineKeyboardButton(category.title, switch_inline_query_current_chat=category.id))
     return kb
 
 
