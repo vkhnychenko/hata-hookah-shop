@@ -157,71 +157,12 @@ async def left_right_handlers(call: CallbackQuery, state: FSMContext):
     await state.update_data(i=i)
 
 
-# @dp.callback_query_handler(lambda call: call.data in ['add', 'cancel', 'delete_product', 'delete_cart', 'pay', 'back'],
-#                            state='*')
-@dp.callback_query_handler(state='*')
-async def cart_handlers(call: CallbackQuery, state: FSMContext):
-    data = await state.get_data()
-    await bot.answer_callback_query(call.id)
-    print(type(call.data))
-    list_category = [str(category.id) for category in await get_category()]
-    print(list_category)
-
-    if call.data in [str(category.id) for category in await get_category()]:
-        print('category', call.data)
-        kb = await child_category_kb(call.data)
-        await call.message.edit_reply_markup(reply_markup=kb)
-
-    if call.data == 'add':
-        product = data.get('product')
-        quantity = data.get('quantity')
-        await add_cart(call.message.chat.id, product, quantity)
-        cart = await get_cart(call.message.chat.id)
-        await send_cart(cart, call.message.chat.id)
-        await state.update_data(cart=cart, i=0)
-
-    if call.data == 'back':
-        kb = await category_kb()
-        await call.message.edit_reply_markup(reply_markup=kb)
-
-    if call.data == 'cancel':
-        await call.message.delete()
-        kb = await category_kb()
-        await call.message.answer(category_text, reply_markup=kb)
-
-    if call.data == 'delete_cart':
-        cart = data.get('cart')
-        cart.delete()
-        await bot.delete_message(call.message.chat.id, call.message.message_id)
-        await call.message.answer('Ваша Корзина пуста')
-        kb = await category_kb()
-        await call.message.answer(category_text, reply_markup=kb)
-
-    if call.data == 'delete_product':
-        await bot.answer_callback_query(call.id)
-        await call.message.edit_reply_markup(reply_markup=delete_confirm)
-        await DeleteProduct.delete.set()
-
-    if call.data == 'pay':
-        await bot.answer_callback_query(call.id)
-        cart = data.get('cart')
-        cart_product = cart.get_products()
-        text = 'Ваш заказ:\n\n'
-        for product in cart_product:
-            text += f'{product.product.title} - {product.quantity} шт. {product.total_price} руб.\n'
-        text += f'\nИтоговая стоимость заказа: {cart.total_price} руб\n'
-        await call.message.answer(
-            text,
-            reply_markup=confirm_order
-        )
-        await Checkout.confirm.set()
-
-
 @dp.callback_query_handler(lambda call: call.data in ['yes_del', 'no_del'], state=DeleteProduct.delete)
 async def confirm_delete(call: CallbackQuery, state: FSMContext):
     await bot.answer_callback_query(call.id)
     data = await state.get_data()
     i = data.get('i')
+    print('delete', i)
     cart = data.get('cart')
     cart_product = cart.get_products()
     if call.data == 'yes_del':
@@ -279,3 +220,58 @@ async def phone_handler(message: types.Message, state: FSMContext):
     else:
         await message.answer('Неправильный формат.Введите реальный номер,чтобы мы могли с вязаться с вами')
         await Checkout.phone.set()
+
+
+@dp.callback_query_handler(state='*')
+async def cart_handlers(call: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    await bot.answer_callback_query(call.id)
+
+    if call.data in [str(category.id) for category in await get_category()]:
+        print('category', call.data)
+        kb = await child_category_kb(call.data)
+        await call.message.edit_reply_markup(reply_markup=kb)
+
+    if call.data == 'add':
+        product = data.get('product')
+        quantity = data.get('quantity')
+        await add_cart(call.message.chat.id, product, quantity)
+        cart = await get_cart(call.message.chat.id)
+        await send_cart(cart, call.message.chat.id)
+        await state.update_data(cart=cart, i=0)
+
+    if call.data == 'back':
+        kb = await category_kb()
+        await call.message.edit_reply_markup(reply_markup=kb)
+
+    if call.data == 'cancel':
+        await call.message.delete()
+        kb = await category_kb()
+        await call.message.answer(category_text, reply_markup=kb)
+
+    if call.data == 'delete_cart':
+        cart = data.get('cart')
+        cart.delete()
+        await bot.delete_message(call.message.chat.id, call.message.message_id)
+        await call.message.answer('Ваша Корзина пуста')
+        kb = await category_kb()
+        await call.message.answer(category_text, reply_markup=kb)
+
+    if call.data == 'delete_product':
+        await bot.answer_callback_query(call.id)
+        await call.message.edit_reply_markup(reply_markup=delete_confirm)
+        await DeleteProduct.delete.set()
+
+    if call.data == 'pay':
+        await bot.answer_callback_query(call.id)
+        cart = data.get('cart')
+        cart_product = cart.get_products()
+        text = 'Ваш заказ:\n\n'
+        for product in cart_product:
+            text += f'{product.product.title} - {product.quantity} шт. {product.total_price} руб.\n'
+        text += f'\nИтоговая стоимость заказа: {cart.total_price} руб\n'
+        await call.message.answer(
+            text,
+            reply_markup=confirm_order
+        )
+        await Checkout.confirm.set()

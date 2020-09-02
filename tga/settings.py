@@ -6,13 +6,15 @@ load_dotenv()
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-SECRET_KEY = os.getenv("SECRET_KEY")
+SECRET_KEY = os.getenv("SECRET_KEY", 'dfsdfsgdfgdsfsdgf')
 
 DEBUG = os.getenv('DEBUG')
 
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", '*').split(" ")
 
-#ассинхронность
+CONN_MAX_AGE = 60
+
+#ассинхронностьkeepalive_kwargs
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 
 INSTALLED_APPS = [
@@ -23,6 +25,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'ugc',
+    'rest_framework'
 ]
 
 MIDDLEWARE = [

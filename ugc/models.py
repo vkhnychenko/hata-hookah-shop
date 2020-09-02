@@ -1,4 +1,6 @@
 from time import timezone
+
+from django.db.models.signals import post_save
 from slugify import slugify
 
 from django.contrib.auth import get_user_model
@@ -85,6 +87,10 @@ class CartProduct(models.Model):
     def __str__(self):
         return f'{self.product}'
 
+    def delete(self, *args, **kwargs):
+        self.total_price = self.quantity * self.product.price
+        super().save(*args, **kwargs)
+
     class Meta:
         verbose_name = 'Объект корзины'
         verbose_name_plural = 'Объекты корзины'
@@ -110,6 +116,10 @@ class Cart(models.Model):
         self.total_price = cart_total_price
         self.total_products = products.count()
         super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        print('override delete')
+        super().delete(*args, **kwargs)
 
     def __str__(self):
         return f'{self.user.user_id}'
@@ -166,3 +176,12 @@ class Order(models.Model):
 
     def __str__(self):
         return str(self.id)
+
+
+def cart_product_delete_post_save(sender, instance, created, **kwargs):
+    print('post_save signal')
+    print(instance)
+    print('sender', sender)
+
+
+post_save.connect(cart_product_delete_post_save, sender=CartProduct)
