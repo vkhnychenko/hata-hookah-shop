@@ -51,6 +51,7 @@ async def send_cart(cart, user_id, i=0):
 
 @dp.message_handler(CommandStart(), state='*')
 async def bot_start(message: types.Message):
+    await get_category()
     user = await add_new_user(message)
     if user.is_admin:
         await message.answer(
@@ -85,16 +86,16 @@ async def inline_categories(inline_query: InlineQuery, state: FSMContext):
     category_id = inline_query.query
     result = []
     products = await get_products(category_id)
+    print('products', products)
     for product in products:
-        print(settings.URL + product.image.url)
         try:
             result.append(InlineQueryResultArticle(
-                id=product.id,
-                thumb_url=settings.URL + product.image.url,
-                title=product.title,
-                description=f'{product.price} руб.\n'
-                            f'{product.description}',
-                input_message_content=InputTextMessageContent(product.id)
+                id=product["id"],
+                thumb_url=product["image"],
+                title=product["title"],
+                description=f'{product["price"]} руб.\n'
+                            f'{product["description"]}',
+                input_message_content=InputTextMessageContent(product["id"])
             ))
         except TypeError:
             await sleep(5)
@@ -227,7 +228,7 @@ async def cart_handlers(call: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     await bot.answer_callback_query(call.id)
 
-    if call.data in [str(category.id) for category in await get_category()]:
+    if call.data in [str(category['id']) for category in await get_category()]:
         print('category', call.data)
         kb = await child_category_kb(call.data)
         await call.message.edit_reply_markup(reply_markup=kb)

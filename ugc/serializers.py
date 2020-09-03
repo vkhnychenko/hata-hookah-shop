@@ -15,4 +15,4 @@ class CategorySerializer(ModelSerializer):
 
     class Meta:
         model = Category
-        fields = ("id", "title", "parent", "product_set")
+        fields = ("id", "title", "parent", "product_set", "children")

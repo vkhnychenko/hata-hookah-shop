@@ -24,10 +24,10 @@ async def category_kb():
     kb = InlineKeyboardMarkup(row_width=1)
     categories = await get_category()
     for category in categories:
-        if category.children.first():
-            kb.insert(InlineKeyboardButton(category.title, callback_data=category.id))
-        else:
-            kb.insert(InlineKeyboardButton(category.title, switch_inline_query_current_chat=category.id))
+        if category['children'] and not category['parent']:
+            kb.insert(InlineKeyboardButton(category['title'], callback_data=category['id']))
+        # else:
+        #     kb.insert(InlineKeyboardButton(category['title'], switch_inline_query_current_chat=category['id']))
     return kb
 
 
@@ -35,7 +35,7 @@ async def child_category_kb(category_id):
     kb = InlineKeyboardMarkup(row_width=1)
     categories = await get_child_category(category_id)
     for category in categories:
-        kb.insert(InlineKeyboardButton(category.title, switch_inline_query_current_chat=category.id))
+        kb.insert(InlineKeyboardButton(category['title'], switch_inline_query_current_chat=category['id']))
     kb.add(InlineKeyboardButton('Назад◀️', callback_data='back'))
     return kb
 
@@ -44,7 +44,7 @@ async def products_kb(category_id):
     kb = InlineKeyboardMarkup(row_width=1)
     items = await get_products(category_id)
     for item in items:
-        kb.insert(InlineKeyboardButton(item.name, switch_inline_query_current_chat=item.id))
+        kb.insert(InlineKeyboardButton(item['name'], switch_inline_query_current_chat=item['id']))
     kb.add(InlineKeyboardButton('Назад◀️', callback_data='back'))
     return kb
 
